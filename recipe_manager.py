@@ -88,7 +88,11 @@ class RecipeManager:
     
     def __init__(self, csv_file='recipes.csv'):
         self.csv_file = Path(csv_file)
-        self.categories = ['meal', 'side', 'dessert', 'breakfast', 'snack', 'drink']
+        self.categories = [
+            'meal', 'side', 'dessert', 'breakfast', 'snack', 'drink',
+            'sauce', 'dressing', 'baked good', 'appetizer', 'condiment', 
+            'base/component', 'other'
+        ]
         self._ensure_csv_exists()
     
     def _ensure_csv_exists(self):
