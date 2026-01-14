@@ -426,6 +426,277 @@ class RecipeManager:
         print(f"   Category: {category} | Servings: {servings} | Time: {cook_time}")
         return True
     
+    def _parse_recipe_from_text(self, text_block: str) -> Optional[Dict]:
+        """Parse a single recipe from a text block"""
+        lines = text_block.strip().split('\n')
+        recipe_data = {
+            'title': '',
+            'category': 'meal',
+            'servings': 'N/A',
+            'cook_time': 'N/A',
+            'url': '',
+            'ingredients': [],
+            'instructions': '',
+            'notes': '',
+            'image_url': ''
+        }
+        
+        current_section = None
+        instructions_lines = []
+        
+        for line in lines:
+            line_stripped = line.strip()
+            
+            # Skip empty lines unless in instructions
+            if not line_stripped and current_section != 'instructions':
+                continue
+            
+            # Check for field headers
+            if line_stripped.lower().startswith('title:'):
+                recipe_data['title'] = line_stripped[6:].strip()
+            elif line_stripped.lower().startswith('category:'):
+                recipe_data['category'] = line_stripped[9:].strip().lower()
+            elif line_stripped.lower().startswith('servings:'):
+                recipe_data['servings'] = line_stripped[9:].strip()
+            elif line_stripped.lower().startswith('cook time:'):
+                recipe_data['cook_time'] = line_stripped[10:].strip()
+            elif line_stripped.lower().startswith('source:'):
+                recipe_data['url'] = line_stripped[7:].strip()
+            elif line_stripped.lower().startswith('notes:'):
+                recipe_data['notes'] = line_stripped[6:].strip()
+                current_section = 'notes'
+            elif line_stripped.lower() == 'ingredients:':
+                current_section = 'ingredients'
+            elif line_stripped.lower() == 'instructions:':
+                current_section = 'instructions'
+            elif current_section == 'ingredients':
+                # Parse ingredient
+                try:
+                    parsed_ing = self._parse_ingredient_input(line_stripped)
+                    recipe_data['ingredients'].append(parsed_ing)
+                except Exception as e:
+                    print(f"Warning: Could not parse ingredient '{line_stripped}': {e}")
+            elif current_section == 'instructions':
+                instructions_lines.append(line_stripped)
+            elif current_section == 'notes':
+                # Continue accumulating notes
+                recipe_data['notes'] += ' ' + line_stripped
+        
+        # Join instructions
+        recipe_data['instructions'] = ' || '.join(instructions_lines) if instructions_lines else 'See source'
+        
+        # Validate
+        if not recipe_data['title']:
+            return None
+        if not recipe_data['ingredients']:
+            print(f"Warning: Recipe '{recipe_data['title']}' has no ingredients")
+            return None
+        
+        # Generate URL if not provided
+        if not recipe_data['url']:
+            recipe_data['url'] = f"text-import-{len(pd.read_csv(self.csv_file)) + 1}"
+        
+        return recipe_data
+    
+    def import_from_txt(self, txt_file: str):
+        """Import multiple recipes from a text file"""
+        txt_path = Path(txt_file)
+        
+        if not txt_path.exists():
+            print(f"ERROR: File '{txt_file}' not found.")
+            return False
+        
+        print(f"\nImporting recipes from: {txt_file}")
+        print("=" * 80)
+        
+        # Read file
+        with open(txt_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Split by separator (*****)
+        recipe_blocks = content.split('*****')
+        
+        imported_count = 0
+        failed_count = 0
+        
+        for idx, block in enumerate(recipe_blocks, 1):
+            block = block.strip()
+            if not block:
+                continue
+            
+            print(f"\nProcessing recipe {idx}...")
+            recipe = self._parse_recipe_from_text(block)
+            
+            if recipe:
+                # Save to CSV
+                try:
+                    with open(self.csv_file, 'a', newline='', encoding='utf-8') as f:
+                        writer = csv.DictWriter(f, fieldnames=[
+                            'title', 'url', 'category', 'ingredients', 
+                            'instructions', 'cook_time', 'servings', 'image_url', 'notes'
+                        ])
+                        # Convert ingredients list to JSON
+                        recipe_to_save = recipe.copy()
+                        recipe_to_save['ingredients'] = json.dumps(recipe['ingredients'])
+                        writer.writerow(recipe_to_save)
+                    
+                    print(f"  SUCCESS: Added '{recipe['title']}'")
+                    print(f"    Category: {recipe['category']} | Ingredients: {len(recipe['ingredients'])}")
+                    imported_count += 1
+                except Exception as e:
+                    print(f"  ERROR: Failed to save '{recipe.get('title', 'Unknown')}': {e}")
+                    failed_count += 1
+            else:
+                print(f"  ERROR: Could not parse recipe block {idx}")
+                failed_count += 1
+        
+        print("\n" + "=" * 80)
+        print(f"Import complete: {imported_count} successful, {failed_count} failed")
+        print("=" * 80)
+        return True
+    
+    def update_recipe(self, title_search: Optional[str] = None):
+        """Update an existing recipe"""
+        df = pd.read_csv(self.csv_file)
+        
+        if df.empty:
+            print("No recipes found.")
+            return False
+        
+        # Find recipe
+        if title_search:
+            matches = df[df['title'].str.contains(title_search, case=False, na=False)]
+            if matches.empty:
+                print(f"No recipe found matching '{title_search}'")
+                return False
+            elif len(matches) > 1:
+                print(f"\nFound {len(matches)} matching recipes:")
+                for idx, row in matches.iterrows():
+                    print(f"  {idx + 1}. {row['title']} ({row['category']})")
+                choice = input("\nEnter recipe number to update: ").strip()
+                try:
+                    recipe_idx = int(choice) - 1
+                    recipe = matches.iloc[recipe_idx]
+                except:
+                    print("Invalid selection")
+                    return False
+            else:
+                recipe = matches.iloc[0]
+        else:
+            # Show all recipes and let user choose
+            print("\nAll Recipes:")
+            for idx, row in df.iterrows():
+                print(f"  {idx + 1}. {row['title']} ({row['category']})")
+            choice = input("\nEnter recipe number to update: ").strip()
+            try:
+                recipe_idx = int(choice) - 1
+                recipe = df.iloc[recipe_idx]
+            except:
+                print("Invalid selection")
+                return False
+        
+        print("\n" + "=" * 80)
+        print(f"UPDATING: {recipe['title']}")
+        print("=" * 80)
+        print("Press Enter to keep current value, or type new value\n")
+        
+        # Update fields
+        new_title = input(f"Title [{recipe['title']}]: ").strip()
+        if not new_title:
+            new_title = recipe['title']
+        
+        new_category = input(f"Category [{recipe['category']}]: ").strip().lower()
+        if not new_category:
+            new_category = recipe['category']
+        
+        new_servings = input(f"Servings [{recipe['servings']}]: ").strip()
+        if not new_servings:
+            new_servings = recipe['servings']
+        
+        new_cook_time = input(f"Cook Time [{recipe['cook_time']}]: ").strip()
+        if not new_cook_time:
+            new_cook_time = recipe['cook_time']
+        
+        new_url = input(f"Source/URL [{recipe['url']}]: ").strip()
+        if not new_url:
+            new_url = recipe['url']
+        
+        # Ingredients
+        print(f"\nCurrent Ingredients:")
+        try:
+            current_ingredients = json.loads(recipe['ingredients'])
+            if isinstance(current_ingredients, list) and current_ingredients:
+                if isinstance(current_ingredients[0], dict):
+                    # New format
+                    for i, ing in enumerate(current_ingredients, 1):
+                        formatted = self._format_ingredient(ing['quantity'], ing['unit'], ing['name'])
+                        print(f"  {i}. {formatted}")
+                else:
+                    # Old format
+                    for i, ing in enumerate(current_ingredients, 1):
+                        print(f"  {i}. {ing}")
+        except:
+            print("  (Could not parse ingredients)")
+        
+        update_ingredients = input("\nUpdate ingredients? (y/n): ").strip().lower()
+        if update_ingredients == 'y':
+            print("\nEnter new ingredients (press Enter on empty line to finish):")
+            new_ingredients = []
+            counter = 1
+            while True:
+                print(f"\nIngredient {counter}:")
+                parsed_ingredient = self._prompt_for_ingredient()
+                if not parsed_ingredient:
+                    break
+                new_ingredients.append(parsed_ingredient)
+                formatted = self._format_ingredient(
+                    parsed_ingredient['quantity'], 
+                    parsed_ingredient['unit'], 
+                    parsed_ingredient['name']
+                )
+                print(f"  -> Added: {formatted}")
+                counter += 1
+        else:
+            new_ingredients = current_ingredients
+        
+        # Instructions
+        print(f"\nCurrent Instructions: {recipe['instructions'][:100]}...")
+        update_instructions = input("\nUpdate instructions? (y/n): ").strip().lower()
+        if update_instructions == 'y':
+            print("\nEnter new instructions (type 'DONE' on new line when finished):")
+            instructions_lines = []
+            while True:
+                line = input()
+                if line.strip().upper() == 'DONE':
+                    break
+                instructions_lines.append(line)
+            new_instructions = ' || '.join(instructions_lines) if instructions_lines else recipe['instructions']
+        else:
+            new_instructions = recipe['instructions']
+        
+        # Notes
+        new_notes = input(f"\nNotes [{recipe['notes']}]: ").strip()
+        if not new_notes:
+            new_notes = recipe['notes']
+        
+        # Update in dataframe
+        df.at[recipe.name, 'title'] = new_title
+        df.at[recipe.name, 'category'] = new_category
+        df.at[recipe.name, 'servings'] = new_servings
+        df.at[recipe.name, 'cook_time'] = new_cook_time
+        df.at[recipe.name, 'url'] = new_url
+        df.at[recipe.name, 'ingredients'] = json.dumps(new_ingredients)
+        df.at[recipe.name, 'instructions'] = new_instructions
+        df.at[recipe.name, 'notes'] = new_notes
+        
+        # Save back to CSV
+        df.to_csv(self.csv_file, index=False)
+        
+        print("\n" + "=" * 80)
+        print(f"SUCCESS: Updated '{new_title}'!")
+        print("=" * 80)
+        return True
+    
     def list_recipes(self, category: Optional[str] = None):
         """List all recipes, optionally filtered by category"""
         df = pd.read_csv(self.csv_file)
@@ -580,6 +851,8 @@ def main():
         print("\nUsage:")
         print("  python recipe_manager.py add <url> [category] [notes]")
         print("  python recipe_manager.py manual")
+        print("  python recipe_manager.py import-txt <file.txt>")
+        print("  python recipe_manager.py update [recipe_title]")
         print("  python recipe_manager.py list [category]")
         print("  python recipe_manager.py plan [num_meals]")
         print("  python recipe_manager.py search <query>")
@@ -587,11 +860,15 @@ def main():
         print("  python recipe_manager.py add https://www.allrecipes.com/recipe/12345/")
         print("  python recipe_manager.py add <url> dessert 'Family favorite'")
         print("  python recipe_manager.py manual")
+        print("  python recipe_manager.py import-txt my_recipes.txt")
+        print("  python recipe_manager.py update 'Cottage Cheese Flatbread'")
+        print("  python recipe_manager.py update")
         print("  python recipe_manager.py list")
         print("  python recipe_manager.py list meal")
         print("  python recipe_manager.py plan 5")
         print("  python recipe_manager.py search chicken")
-        print("\nCategories: meal, side, dessert, breakfast, snack, drink (or create your own)")
+        print("\nCategories: meal, side, dessert, breakfast, snack, drink, sauce, dressing,")
+        print("            baked good, appetizer, condiment, base/component, other")
         print("=" * 80)
         return
     
@@ -610,6 +887,18 @@ def main():
     
     elif command == 'manual':
         manager.add_manual_recipe()
+    
+    elif command == 'import-txt':
+        if len(sys.argv) < 3:
+            print("Usage: python recipe_manager.py import-txt <file.txt>")
+            return
+        
+        txt_file = sys.argv[2]
+        manager.import_from_txt(txt_file)
+    
+    elif command == 'update':
+        title_search = sys.argv[2] if len(sys.argv) > 2 else None
+        manager.update_recipe(title_search)
     
     elif command == 'list':
         category = sys.argv[2] if len(sys.argv) > 2 else None
@@ -633,7 +922,7 @@ def main():
     
     else:
         print(f"Unknown command: {command}")
-        print("Available commands: add, manual, list, plan, search")
+        print("Available commands: add, manual, import-txt, update, list, plan, search")
 
 
 if __name__ == "__main__":
