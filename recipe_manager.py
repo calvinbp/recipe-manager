@@ -41,18 +41,49 @@ except ImportError:
 
 class RecipeManager:
     # Standardized units
-    VALID_UNITS = ['t', 'T', 'C', 'oz', 'floz', 'lb', 'g', 'kg', 'ml', 'L']
+    VALID_UNITS = [
+        # Volume
+        't', 'T', 'C', 'ml', 'L', 'floz',
+        # Weight
+        'oz', 'lb', 'g', 'kg',
+        # Counting/Pieces
+        'slice', 'slices', 'piece', 'pieces', 'clove', 'cloves',
+        'can', 'cans', 'whole', 'each', 'bunch', 'head', 'stalk', 'stalks',
+        'pkg', 'package', 'container', 'jar', 'box'
+    ]
     UNIT_DISPLAY = {
+        # Volume
         't': 'tsp',
         'T': 'Tbsp', 
         'C': 'cup',
-        'oz': 'oz',
+        'ml': 'ml',
+        'L': 'L',
         'floz': 'fl oz',
+        # Weight
+        'oz': 'oz',
         'lb': 'lb',
         'g': 'g',
         'kg': 'kg',
-        'ml': 'ml',
-        'L': 'L'
+        # Counting/Pieces
+        'slice': 'slice',
+        'slices': 'slices',
+        'piece': 'piece',
+        'pieces': 'pieces',
+        'clove': 'clove',
+        'cloves': 'cloves',
+        'can': 'can',
+        'cans': 'cans',
+        'whole': 'whole',
+        'each': 'each',
+        'bunch': 'bunch',
+        'head': 'head',
+        'stalk': 'stalk',
+        'stalks': 'stalks',
+        'pkg': 'package',
+        'package': 'package',
+        'container': 'container',
+        'jar': 'jar',
+        'box': 'box'
     }
     
     def __init__(self, csv_file='recipes.csv'):
