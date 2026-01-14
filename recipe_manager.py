@@ -18,7 +18,7 @@ from collections import defaultdict
 import re
 
 try:
-    from recipe_scrapers import scrape_me_now
+    from recipe_scrapers import scrape_me
 except ImportError:
     print("Error: recipe-scrapers not installed.")
     print("Run: pip install recipe-scrapers")
@@ -60,7 +60,7 @@ class RecipeManager:
         """Scrape recipe from URL using recipe-scrapers"""
         try:
             print(f"Scraping recipe from: {url}")
-            scraper = scrape_me_now(url)
+            scraper = scrape_me(url)
             
             recipe = {
                 'title': scraper.title(),
@@ -422,4 +422,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
