@@ -22,9 +22,21 @@ try:
 except ImportError:
     print("Error: recipe-scrapers not installed.")
     print("Run: pip install recipe-scrapers")
+    print(f"\nPython path: {sys.executable}")
+    print("\nTry one of these:")
+    print("  py -m pip install recipe-scrapers")
+    print("  python -m pip install recipe-scrapers")
     sys.exit(1)
 
-import pandas as pd
+try:
+    import pandas as pd
+except ImportError:
+    print("Error: pandas not installed.")
+    print(f"\nPython path: {sys.executable}")
+    print("\nTry one of these:")
+    print("  py -m pip install pandas")
+    print("  python -m pip install pandas")
+    sys.exit(1)
 
 
 class RecipeManager:
@@ -42,12 +54,12 @@ class RecipeManager:
                     'title', 'url', 'category', 'ingredients', 
                     'instructions', 'cook_time', 'servings', 'image_url', 'notes'
                 ])
-            print(f"✅ Created {self.csv_file}")
+            print(f"Created {self.csv_file}")
     
     def scrape_recipe(self, url: str) -> Optional[Dict]:
         """Scrape recipe from URL using recipe-scrapers"""
         try:
-            print(f"🔍 Scraping recipe from: {url}")
+            print(f"Scraping recipe from: {url}")
             scraper = scrape_me_now(url)
             
             recipe = {
@@ -60,11 +72,11 @@ class RecipeManager:
                 'image_url': scraper.image() if scraper.image() else '',
             }
             
-            print(f"✅ Found recipe: {recipe['title']}")
+            print(f"Found recipe: {recipe['title']}")
             return recipe
             
         except Exception as e:
-            print(f"❌ Error scraping recipe: {e}")
+            print(f"ERROR scraping recipe: {e}")
             print("The site may not be supported or the URL may be incorrect.")
             return None
     
@@ -77,7 +89,7 @@ class RecipeManager:
         
         # Ask for category if not provided
         if not category:
-            print(f"\n📝 Categorize '{recipe['title']}'")
+            print(f"\nCategorize '{recipe['title']}'")
             print("Available categories:", ', '.join(self.categories))
             category = input("Enter category (or press Enter for 'meal'): ").strip().lower()
             
@@ -105,19 +117,19 @@ class RecipeManager:
             ])
             writer.writerow(recipe)
         
-        print(f"✅ Added '{recipe['title']}' to your recipe collection!")
+        print(f"SUCCESS: Added '{recipe['title']}' to your recipe collection!")
         return True
     
     def add_manual_recipe(self):
         """Manually add a recipe by entering all details"""
         print("\n" + "=" * 80)
-        print("📝 MANUALLY ADD RECIPE")
+        print("MANUALLY ADD RECIPE")
         print("=" * 80)
         
         # Get recipe details
         title = input("\nRecipe Title: ").strip()
         if not title:
-            print("❌ Title is required.")
+            print("ERROR: Title is required.")
             return False
         
         # Category
@@ -144,7 +156,7 @@ class RecipeManager:
             cook_time = 'N/A'
         
         # Ingredients
-        print("\n📋 Ingredients:")
+        print("\nIngredients:")
         print("Enter ingredients one per line. Press Enter on empty line when done.")
         ingredients = []
         counter = 1
@@ -156,11 +168,11 @@ class RecipeManager:
             counter += 1
         
         if not ingredients:
-            print("❌ At least one ingredient is required.")
+            print("ERROR: At least one ingredient is required.")
             return False
         
         # Instructions
-        print("\n📝 Instructions:")
+        print("\nInstructions:")
         print("Enter instructions. You can use multiple lines.")
         print("Type 'DONE' on a new line when finished.")
         instructions_lines = []
@@ -173,7 +185,7 @@ class RecipeManager:
         instructions = ' || '.join(instructions_lines) if instructions_lines else 'See original recipe'
         
         # Notes
-        notes = input("\n💭 Notes (optional): ").strip()
+        notes = input("\nNotes (optional): ").strip()
         
         # Image URL (optional)
         image_url = input("Image URL (optional): ").strip()
@@ -199,7 +211,7 @@ class RecipeManager:
             ])
             writer.writerow(recipe)
         
-        print(f"\n✅ Added '{title}' to your recipe collection!")
+        print(f"\nSUCCESS: Added '{title}' to your recipe collection!")
         print(f"   Category: {category} | Servings: {servings} | Time: {cook_time}")
         return True
     
@@ -213,9 +225,9 @@ class RecipeManager:
         
         if category:
             df = df[df['category'].str.lower() == category.lower()]
-            print(f"\n📚 {category.upper()} Recipes:")
+            print(f"\n{category.upper()} Recipes:")
         else:
-            print(f"\n📚 All Recipes ({len(df)} total):")
+            print(f"\nAll Recipes ({len(df)} total):")
         
         print("=" * 80)
         
@@ -235,14 +247,14 @@ class RecipeManager:
         meals_df = df[df['category'].str.lower() == category.lower()]
         
         if len(meals_df) < num_meals:
-            print(f"⚠️ Only {len(meals_df)} {category}s available. Need at least {num_meals}.")
+            print(f"WARNING: Only {len(meals_df)} {category}s available. Need at least {num_meals}.")
             print(f"Add more with: python recipe_manager.py add <url>")
             return []
         
         # Randomly select meals
         selected = meals_df.sample(n=num_meals)
         
-        print(f"\n🍽️  YOUR {num_meals}-MEAL WEEKLY PLAN")
+        print(f"\nYOUR {num_meals}-MEAL WEEKLY PLAN")
         print("=" * 80)
         
         meal_plan = []
@@ -271,7 +283,7 @@ class RecipeManager:
             return
         
         print("\n" + "=" * 80)
-        print("🛒 CONSOLIDATED SHOPPING LIST")
+        print("CONSOLIDATED SHOPPING LIST")
         print("=" * 80)
         
         # Group all ingredients
@@ -298,7 +310,7 @@ class RecipeManager:
             ingredient_groups[key].append(ingredient)
         
         # Print organized by similarity
-        print("\n📋 Ingredients Needed:\n")
+        print("\nIngredients Needed:\n")
         for idx, (key, ingredients) in enumerate(ingredient_groups.items(), 1):
             if len(ingredients) == 1:
                 print(f"{idx}. {ingredients[0]}")
@@ -334,7 +346,7 @@ class RecipeManager:
             print(f"No recipes found matching '{query}'")
             return
         
-        print(f"\n🔍 Search results for '{query}':")
+        print(f"\nSearch results for '{query}':")
         print("=" * 80)
         
         for idx, row in results.iterrows():
@@ -347,7 +359,7 @@ def main():
     
     if len(sys.argv) < 2:
         print("=" * 80)
-        print("🍳 RECIPE MANAGER")
+        print("RECIPE MANAGER")
         print("=" * 80)
         print("\nUsage:")
         print("  python recipe_manager.py add <url> [category] [notes]")
@@ -392,7 +404,7 @@ def main():
         meal_plan = manager.generate_meal_plan(num_meals)
         
         if meal_plan:
-            print("\n💡 Generating shopping list...")
+            print("\nGenerating shopping list...")
             manager.generate_shopping_list(meal_plan)
     
     elif command == 'search':
