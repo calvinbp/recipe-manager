@@ -18,7 +18,7 @@ from collections import defaultdict
 import re
 
 try:
-    from recipe_scrapers import scrape_me_now
+    from recipe_scrapers import scrape_me
 except ImportError:
     print("Error: recipe-scrapers not installed.")
     print("Run: pip install recipe-scrapers")
@@ -40,6 +40,21 @@ except ImportError:
 
 
 class RecipeManager:
+    # Standardized units
+    VALID_UNITS = ['t', 'T', 'C', 'oz', 'floz', 'lb', 'g', 'kg', 'ml', 'L']
+    UNIT_DISPLAY = {
+        't': 'tsp',
+        'T': 'Tbsp', 
+        'C': 'cup',
+        'oz': 'oz',
+        'floz': 'fl oz',
+        'lb': 'lb',
+        'g': 'g',
+        'kg': 'kg',
+        'ml': 'ml',
+        'L': 'L'
+    }
+    
     def __init__(self, csv_file='recipes.csv'):
         self.csv_file = Path(csv_file)
         self.categories = ['meal', 'side', 'dessert', 'breakfast', 'snack', 'drink']
@@ -56,16 +71,167 @@ class RecipeManager:
                 ])
             print(f"Created {self.csv_file}")
     
+    def _parse_fraction(self, fraction_str: str) -> float:
+        """Convert fraction string to decimal (e.g., '1/2' -> 0.5, '1 1/2' -> 1.5)"""
+        fraction_str = fraction_str.strip()
+        
+        # Handle mixed numbers like "1 1/2"
+        if ' ' in fraction_str:
+            parts = fraction_str.split()
+            whole = float(parts[0])
+            frac = self._parse_fraction(parts[1])
+            return whole + frac
+        
+        # Handle fractions like "1/2"
+        if '/' in fraction_str:
+            numerator, denominator = fraction_str.split('/')
+            return float(numerator) / float(denominator)
+        
+        # Regular number
+        return float(fraction_str)
+    
+    def _normalize_quantity(self, quantity_str: str) -> tuple:
+        """
+        Parse and normalize a quantity string into (number, unit)
+        Examples: "1/2 C" -> (0.5, "C"), "2 T" -> (2.0, "T"), "1.5 t" -> (1.5, "t")
+        """
+        quantity_str = quantity_str.strip()
+        
+        # Pattern to match number (with fractions) and unit
+        # Matches: "1/2 C", "1 1/2 C", "2.5 t", "3T" (no space)
+        pattern = r'^([\d\s./]+)\s*([a-zA-Z]+)?$'
+        match = re.match(pattern, quantity_str)
+        
+        if not match:
+            raise ValueError(f"Invalid quantity format: '{quantity_str}'")
+        
+        number_part = match.group(1).strip()
+        unit_part = match.group(2) if match.group(2) else ''
+        
+        # Parse the number (handles fractions and decimals)
+        try:
+            number = self._parse_fraction(number_part)
+        except:
+            raise ValueError(f"Invalid number format: '{number_part}'")
+        
+        # Validate unit
+        if unit_part and unit_part not in self.VALID_UNITS:
+            valid_units_str = ', '.join(self.VALID_UNITS)
+            raise ValueError(f"Invalid unit '{unit_part}'. Valid units: {valid_units_str}")
+        
+        return (number, unit_part)
+    
+    def _normalize_ingredient_name(self, name: str) -> str:
+        """Capitalize first letter of each word in ingredient name"""
+        return ' '.join(word.capitalize() for word in name.split())
+    
+    def _format_ingredient(self, quantity_num: float, unit: str, name: str) -> str:
+        """Format ingredient for display: '1.5 cup Flour'"""
+        # Convert float to nice display (remove .0 for whole numbers)
+        if quantity_num == int(quantity_num):
+            qty_display = str(int(quantity_num))
+        else:
+            qty_display = str(quantity_num)
+        
+        # Get unit display name
+        unit_display = self.UNIT_DISPLAY.get(unit, unit) if unit else ''
+        
+        # Format: "1.5 cup Flour" or "2 Flour" (if no unit)
+        if unit_display:
+            return f"{qty_display} {unit_display} {name}"
+        else:
+            return f"{qty_display} {name}"
+    
+    def _parse_ingredient_input(self, ingredient_str: str) -> Dict:
+        """
+        Parse a freeform ingredient string into structured format.
+        Examples:
+          "1/2 C cottage cheese" -> {"quantity": 0.5, "unit": "C", "name": "Cottage Cheese"}
+          "2 eggs" -> {"quantity": 2.0, "unit": "", "name": "Eggs"}
+        """
+        ingredient_str = ingredient_str.strip()
+        
+        # Try to extract quantity, unit, and name
+        # Pattern: (number with fractions) (optional unit) (ingredient name)
+        pattern = r'^([\d\s./]+)\s*([a-zA-Z]+)?\s+(.+)$'
+        match = re.match(pattern, ingredient_str)
+        
+        if not match:
+            # No quantity found - assume it's just the ingredient name
+            return {
+                'quantity': 1.0,
+                'unit': '',
+                'name': self._normalize_ingredient_name(ingredient_str)
+            }
+        
+        number_part = match.group(1).strip()
+        unit_part = match.group(2) if match.group(2) else ''
+        name_part = match.group(3).strip()
+        
+        # Check if the "unit" is actually part of the name (not a valid unit)
+        if unit_part and unit_part not in self.VALID_UNITS:
+            # It's not a unit, it's part of the name
+            name_part = f"{unit_part} {name_part}"
+            unit_part = ''
+        
+        # Parse quantity
+        try:
+            quantity = self._parse_fraction(number_part)
+        except:
+            raise ValueError(f"Invalid number format: '{number_part}'")
+        
+        return {
+            'quantity': quantity,
+            'unit': unit_part,
+            'name': self._normalize_ingredient_name(name_part)
+        }
+    
+    def _prompt_for_ingredient(self) -> Optional[Dict]:
+        """Prompt user for a single ingredient with validation"""
+        print("\nEnter ingredient (or press Enter to finish):")
+        print("Examples: '1/2 C cottage cheese', '2 T butter', '3 eggs'")
+        print(f"Valid units: {', '.join(self.VALID_UNITS)}")
+        
+        ingredient_str = input("Ingredient: ").strip()
+        
+        if not ingredient_str:
+            return None
+        
+        try:
+            return self._parse_ingredient_input(ingredient_str)
+        except ValueError as e:
+            print(f"ERROR: {e}")
+            print("Please try again.")
+            return self._prompt_for_ingredient()
+    
     def scrape_recipe(self, url: str) -> Optional[Dict]:
         """Scrape recipe from URL using recipe-scrapers"""
         try:
             print(f"Scraping recipe from: {url}")
-            scraper = scrape_me_now(url)
+            scraper = scrape_me(url)
+            
+            # Parse scraped ingredients into structured format
+            raw_ingredients = scraper.ingredients()
+            parsed_ingredients = []
+            
+            print(f"\nParsing {len(raw_ingredients)} ingredients...")
+            for raw_ing in raw_ingredients:
+                try:
+                    parsed = self._parse_ingredient_input(raw_ing)
+                    parsed_ingredients.append(parsed)
+                except ValueError as e:
+                    # If parsing fails, ask user to manually enter it
+                    print(f"\nCouldn't automatically parse: '{raw_ing}'")
+                    print(f"Error: {e}")
+                    print("Please enter manually:")
+                    manual_parsed = self._prompt_for_ingredient()
+                    if manual_parsed:
+                        parsed_ingredients.append(manual_parsed)
             
             recipe = {
                 'title': scraper.title(),
                 'url': url,
-                'ingredients': scraper.ingredients(),
+                'ingredients': parsed_ingredients,
                 'instructions': scraper.instructions(),
                 'cook_time': scraper.total_time() if scraper.total_time() else 'N/A',
                 'servings': scraper.yields() if scraper.yields() else 'N/A',
@@ -158,13 +324,23 @@ class RecipeManager:
         # Ingredients
         print("\nIngredients:")
         print("Enter ingredients one per line. Press Enter on empty line when done.")
+        print("Examples: '1/2 C cottage cheese', '2 T butter', '3 eggs'")
+        print(f"Valid units: {', '.join(self.VALID_UNITS)}")
         ingredients = []
         counter = 1
         while True:
-            ingredient = input(f"  {counter}. ").strip()
-            if not ingredient:
+            print(f"\nIngredient {counter}:")
+            parsed_ingredient = self._prompt_for_ingredient()
+            if not parsed_ingredient:
                 break
-            ingredients.append(ingredient)
+            ingredients.append(parsed_ingredient)
+            # Show what was parsed
+            formatted = self._format_ingredient(
+                parsed_ingredient['quantity'], 
+                parsed_ingredient['unit'], 
+                parsed_ingredient['name']
+            )
+            print(f"  -> Added: {formatted}")
             counter += 1
         
         if not ingredients:
@@ -286,41 +462,46 @@ class RecipeManager:
         print("CONSOLIDATED SHOPPING LIST")
         print("=" * 80)
         
-        # Group all ingredients
-        all_ingredients = []
+        # Consolidate ingredients by name and unit
+        # ingredient_map: {(name, unit): total_quantity}
+        ingredient_map = defaultdict(float)
+        
         for meal in meal_plan:
-            all_ingredients.extend(meal['ingredients'])
-        
-        # Try to combine similar ingredients (basic grouping)
-        ingredient_groups = defaultdict(list)
-        
-        for ingredient in all_ingredients:
-            # Extract base ingredient (rough heuristic)
-            # This is simplified - you could make it more sophisticated
-            base = ingredient.lower()
-            
-            # Remove common measurements to group similar items
-            for word in ['cup', 'cups', 'tablespoon', 'tablespoons', 'tbsp', 
-                        'teaspoon', 'teaspoons', 'tsp', 'pound', 'pounds', 
-                        'lb', 'lbs', 'ounce', 'ounces', 'oz', 'gram', 'grams', 'g']:
-                base = base.replace(word, '').strip()
-            
-            # Use first few words as key
-            key = ' '.join(base.split()[:3]) if base else ingredient
-            ingredient_groups[key].append(ingredient)
-        
-        # Print organized by similarity
-        print("\nIngredients Needed:\n")
-        for idx, (key, ingredients) in enumerate(ingredient_groups.items(), 1):
-            if len(ingredients) == 1:
-                print(f"{idx}. {ingredients[0]}")
-            else:
-                print(f"{idx}. {key}:")
+            ingredients = meal['ingredients']
+            # Handle both old format (strings) and new format (dicts)
+            if isinstance(ingredients, str):
+                # Old format - just display as-is
+                ingredients = json.loads(ingredients)
                 for ing in ingredients:
-                    print(f"     - {ing}")
+                    if isinstance(ing, str):
+                        # Old string format - can't consolidate
+                        ingredient_map[(ing, 'raw')] = 1
+                    else:
+                        # New dict format
+                        key = (ing['name'], ing['unit'])
+                        ingredient_map[key] += ing['quantity']
+            else:
+                # New format - list of dicts
+                for ing in ingredients:
+                    key = (ing['name'], ing['unit'])
+                    ingredient_map[key] += ing['quantity']
+        
+        # Sort ingredients by name
+        sorted_ingredients = sorted(ingredient_map.items(), key=lambda x: x[0][0])
+        
+        # Print consolidated list
+        print("\nIngredients Needed:\n")
+        for idx, ((name, unit), quantity) in enumerate(sorted_ingredients, 1):
+            if unit == 'raw':
+                # Old format - just print the name (which is the full string)
+                print(f"{idx}. {name}")
+            else:
+                # New format - format nicely
+                formatted = self._format_ingredient(quantity, unit, name)
+                print(f"{idx}. {formatted}")
         
         print("\n" + "=" * 80)
-        print(f"Total ingredient items: {len(all_ingredients)}")
+        print(f"Total unique ingredients: {len(sorted_ingredients)}")
         print("=" * 80)
     
     def search_recipes(self, query: str):

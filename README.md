@@ -8,10 +8,11 @@ A Python command-line tool to collect, organize, and manage your recipes. Automa
 - ✍️ **Manually add recipes** from cookbooks, family recipes, or handwritten notes
 - 📊 **Categorize recipes** (meal, side, dessert, breakfast, snack, drink, or custom categories)
 - 🎲 **Random meal planning** - Generate weekly meal plans with X number of meals
-- 🛒 **Shopping list generation** - Automatically consolidate ingredients from multiple recipes
+- 🛒 **Smart shopping lists** - Automatically consolidate ingredients (e.g., "1 C flour" + "2 C flour" = "3 C flour")
 - 🔍 **Search functionality** - Find recipes by title or ingredient
 - 💾 **Simple CSV storage** - Easy to backup and edit manually if needed
 - 📝 **Add personal notes** to any recipe
+- ✅ **Standardized ingredient format** - Uniform units and capitalization for consistency
 
 ## 📋 Requirements
 
@@ -73,31 +74,65 @@ This will interactively prompt you for:
 - Source/URL (optional)
 - Servings
 - Cook time
-- Ingredients (one per line)
+- Ingredients (one per line with standardized format)
 - Instructions
 - Notes
 - Image URL (optional)
 
-**Example:**
+#### Ingredient Format
+
+When entering ingredients, use this format: `[quantity] [unit] [ingredient name]`
+
+**Valid units:** `t` (tsp), `T` (Tbsp), `C` (cup), `oz`, `floz` (fl oz), `lb`, `g`, `kg`, `ml`, `L`
+
+**Examples:**
+- `1/2 C cottage cheese` → Parsed as: 0.5 cup Cottage Cheese
+- `2 T butter` → Parsed as: 2 Tbsp Butter
+- `3 eggs` → Parsed as: 3 Eggs (no unit)
+- `1 1/2 t vanilla` → Parsed as: 1.5 tsp Vanilla
+
+The system will:
+- Parse fractions and decimals
+- Standardize unit abbreviations
+- Capitalize ingredient names
+- Allow consolidation in shopping lists
+
+**Example session:**
 ```
-📝 MANUALLY ADD RECIPE
+MANUALLY ADD RECIPE
 ================================================================================
 
-Recipe Title: Grandma's Apple Pie
+Recipe Title: Cottage Cheese Flatbread
 
 Available categories: meal, side, dessert, breakfast, snack, drink
-Category (or press Enter for 'meal'): dessert
+Category (or press Enter for 'meal'): snack
 
-Source/URL (optional, press Enter to skip): Family cookbook
+Source/URL (optional, press Enter to skip): tastyhappy.com
 
-Servings (e.g., '4 servings' or '8 cookies'): 8 slices
+Servings (e.g., '4 servings' or '8 cookies'): 4 flatbreads
 
-Total cook time (e.g., '30 mins' or '1 hour'): 1 hour 30 mins
+Total cook time (e.g., '30 mins' or '1 hour'): 15 mins
 
-📋 Ingredients:
+Ingredients:
 Enter ingredients one per line. Press Enter on empty line when done.
-  1. 6 cups sliced apples
-  2. 1 cup sugar
+Examples: '1/2 C cottage cheese', '2 T butter', '3 eggs'
+Valid units: t, T, C, oz, floz, lb, g, kg, ml, L
+
+Ingredient 1:
+Ingredient: 1 C cottage cheese
+  -> Added: 1 cup Cottage Cheese
+
+Ingredient 2:
+Ingredient: 1 egg
+  -> Added: 1 Egg
+
+Ingredient 3:
+Ingredient: 1/2 t salt
+  -> Added: 0.5 tsp Salt
+
+Ingredient 4:
+Ingredient: [press Enter to finish]
+```
   3. 2 tablespoons flour
   4. 1 teaspoon cinnamon
   5. 2 pie crusts
