@@ -6,12 +6,15 @@ A Python command-line tool to collect, organize, and manage your recipes. Automa
 
 - 🌐 **Auto-scrape recipes** from 100+ popular recipe websites (AllRecipes, NYT Cooking, Food Network, etc.)
 - ✍️ **Manually add recipes** from cookbooks, family recipes, or handwritten notes
-- 📊 **Categorize recipes** (meal, side, dessert, breakfast, snack, drink, or custom categories)
+- 📄 **Bulk import from text files** - Import multiple recipes at once from a formatted .txt file
+- ✏️ **Update existing recipes** - Edit any field of previously added recipes
+- 📊 **Categorize recipes** (meal, side, dessert, breakfast, snack, drink, sauce, dressing, baked good, appetizer, condiment, base/component, other, or custom categories)
 - 🎲 **Random meal planning** - Generate weekly meal plans with X number of meals
-- 🛒 **Shopping list generation** - Automatically consolidate ingredients from multiple recipes
+- 🛒 **Smart shopping lists** - Automatically consolidate ingredients (e.g., "1 C flour" + "2 C flour" = "3 C flour")
 - 🔍 **Search functionality** - Find recipes by title or ingredient
 - 💾 **Simple CSV storage** - Easy to backup and edit manually if needed
 - 📝 **Add personal notes** to any recipe
+- ✅ **Standardized ingredient format** - Uniform units and capitalization for consistency
 
 ## 📋 Requirements
 
@@ -73,31 +76,77 @@ This will interactively prompt you for:
 - Source/URL (optional)
 - Servings
 - Cook time
-- Ingredients (one per line)
+- Ingredients (one per line with standardized format)
 - Instructions
 - Notes
 - Image URL (optional)
 
-**Example:**
+#### Ingredient Format
+
+When entering ingredients, use this format: `[quantity] [unit] [ingredient name]`
+
+**Valid units:**
+- **Volume:** `t` (tsp), `T` (Tbsp), `C` (cup), `ml`, `L`, `floz` (fl oz)
+- **Weight:** `oz`, `lb`, `g`, `kg`
+- **Counting:** `slice`, `slices`, `piece`, `pieces`, `clove`, `cloves`, `whole`, `each`, `can`, `cans`, `bunch`, `head`, `stalk`, `stalks`, `pkg`, `package`, `container`, `jar`, `box`
+- **No unit:** For items like eggs, just use the count: `3 eggs`
+
+**Examples:**
+- `1/2 C cottage cheese` → Parsed as: 0.5 cup Cottage Cheese
+- `2 T butter` → Parsed as: 2 Tbsp Butter
+- `3 eggs` → Parsed as: 3 Eggs (no unit)
+- `1 1/2 t vanilla` → Parsed as: 1.5 tsp Vanilla
+- `2 slices bread` → Parsed as: 2 slices Bread
+- `1 can tomatoes` → Parsed as: 1 can Tomatoes
+- `3 cloves garlic` → Parsed as: 3 cloves Garlic
+- `1/4 bunch cilantro` → Parsed as: 0.25 bunch Cilantro
+
+The system will:
+- Parse fractions and decimals
+- Standardize unit abbreviations
+- Capitalize ingredient names
+- Allow consolidation in shopping lists
+
+**Example session:**
 ```
-📝 MANUALLY ADD RECIPE
+MANUALLY ADD RECIPE
 ================================================================================
 
-Recipe Title: Grandma's Apple Pie
+Recipe Title: Cottage Cheese Flatbread
 
-Available categories: meal, side, dessert, breakfast, snack, drink
-Category (or press Enter for 'meal'): dessert
+Available categories: meal, side, dessert, breakfast, snack, drink, sauce, dressing, baked good, appetizer, condiment, base/component, other
+Category (or press Enter for 'meal'): baked good
 
-Source/URL (optional, press Enter to skip): Family cookbook
+Source/URL (optional, press Enter to skip): tastyhappy.com
 
-Servings (e.g., '4 servings' or '8 cookies'): 8 slices
+Servings (e.g., '4 servings' or '8 cookies'): 4 flatbreads
 
-Total cook time (e.g., '30 mins' or '1 hour'): 1 hour 30 mins
+Total cook time (e.g., '30 mins' or '1 hour'): 15 mins
 
-📋 Ingredients:
+Ingredients:
 Enter ingredients one per line. Press Enter on empty line when done.
-  1. 6 cups sliced apples
-  2. 1 cup sugar
+Examples: '1/2 C cottage cheese', '2 T butter', '3 eggs'
+Valid units: t, T, C, oz, floz, lb, g, kg, ml, L
+
+Ingredient 1:
+Ingredient: 1 C cottage cheese
+  -> Added: 1 cup Cottage Cheese
+
+Ingredient 2:
+Ingredient: 1 egg
+  -> Added: 1 Egg
+
+Ingredient 3:
+Ingredient: 1/2 t salt
+  -> Added: 0.5 tsp Salt
+
+Ingredient 4:
+Ingredient: 2 slices bread
+  -> Added: 2 slices Bread
+
+Ingredient 5:
+Ingredient: [press Enter to finish]
+```
   3. 2 tablespoons flour
   4. 1 teaspoon cinnamon
   5. 2 pie crusts
@@ -119,6 +168,119 @@ Image URL (optional):
 ✅ Added 'Grandma's Apple Pie' to your recipe collection!
 ```
 
+### Import Recipes from Text File
+
+Bulk import multiple recipes from a `.txt` file - great for typing up recipes from cookbooks or family collections!
+
+```bash
+python recipe_manager.py import-txt my_recipes.txt
+```
+
+#### Text File Format
+
+See `recipe_template.txt` for examples. Format for each recipe:
+
+```
+Title: Recipe Name
+Category: category name
+Servings: amount
+Cook Time: time
+Source: url or reference (optional)
+
+Ingredients:
+1/2 C ingredient one
+2 T ingredient two
+3 ingredient three
+
+Instructions:
+Step one instructions.
+Step two instructions.
+Step three instructions.
+
+Notes: Optional notes here
+
+*****
+```
+
+**Rules:**
+- **Required fields:** Title, Ingredients, Instructions
+- **Optional fields:** Category (defaults to 'meal'), Servings, Cook Time, Source, Notes
+- **Separator:** Five asterisks (`*****`) between recipes
+- **Ingredients:** Use standardized format (see ingredient format section above)
+- **Blank lines:** Used to separate sections
+
+**Example import:**
+
+```bash
+python recipe_manager.py import-txt recipe_template.txt
+```
+
+Output:
+```
+Importing recipes from: recipe_template.txt
+================================================================================
+
+Processing recipe 1...
+  SUCCESS: Added 'Cottage Cheese Flatbread'
+    Category: baked good | Ingredients: 4
+
+Processing recipe 2...
+  SUCCESS: Added 'Basic Pie Crust'
+    Category: base/component | Ingredients: 5
+
+================================================================================
+Import complete: 2 successful, 0 failed
+================================================================================
+```
+
+### Update Existing Recipe
+
+Edit any field of an existing recipe:
+
+```bash
+# Update specific recipe by title
+python recipe_manager.py update "Cottage Cheese Flatbread"
+
+# Or browse and select from all recipes
+python recipe_manager.py update
+```
+
+**Interactive process:**
+1. Select recipe (if multiple matches or no title provided)
+2. See current value for each field
+3. Press Enter to keep current value, or type new value
+4. Choose whether to update ingredients or instructions
+5. Recipe is saved with changes
+
+**Example session:**
+```
+UPDATING: Cottage Cheese Flatbread
+================================================================================
+Press Enter to keep current value, or type new value
+
+Title [Cottage Cheese Flatbread]: 
+Category [snack]: baked good
+Servings [4 flatbreads]: 
+Cook Time [15 mins]: 
+Source/URL [tastyhappy.com]: 
+
+Current Ingredients:
+  1. 1 cup Cottage Cheese
+  2. 1 Egg
+  3. 0.5 tsp Salt
+
+Update ingredients? (y/n): n
+
+Current Instructions: Mix all ingredients...
+Update instructions? (y/n): n
+
+Notes []: Great for meal prep!
+
+================================================================================
+SUCCESS: Updated 'Cottage Cheese Flatbread'!
+================================================================================
+```
+
 ### List All Recipes
 
 ```bash
@@ -128,8 +290,20 @@ python recipe_manager.py list
 # List recipes by category
 python recipe_manager.py list meal
 python recipe_manager.py list dessert
-python recipe_manager.py list breakfast
+python recipe_manager.py list "baked good"
+python recipe_manager.py list "base/component"
+python recipe_manager.py list sauce
 ```
+
+**Available categories:** meal, side, dessert, breakfast, snack, drink, sauce, dressing, baked good, appetizer, condiment, base/component, other
+
+**Category examples:**
+- **base/component** - Pie crust, pizza dough, pasta dough, pie filling, stock/broth, bread dough
+- **baked good** - Muffins, cookies, cakes, flatbreads
+- **sauce** - Pasta sauce, gravy, marinara
+- **condiment** - Spreads, dips, relishes
+
+**Note:** You can also type any custom category when adding a recipe, and it will be added to your personal category list.
 
 **Example output:**
 ```
