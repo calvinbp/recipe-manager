@@ -43,13 +43,19 @@ class RecipeManager:
     # Standardized units
     VALID_UNITS = [
         # Volume
-        't', 'T', 'C', 'ml', 'L', 'floz',
+        't', 'T', 'C', 'ml', 'L', 'floz', 'pint', 'pints', 'quart', 'quarts',
         # Weight
-        'oz', 'lb', 'g', 'kg',
+        'oz', 'lb', 'g', 'kg', 'pound', 'pounds',
         # Counting/Pieces
         'slice', 'slices', 'piece', 'pieces', 'clove', 'cloves',
-        'can', 'cans', 'whole', 'each', 'bunch', 'head', 'stalk', 'stalks',
-        'pkg', 'package', 'container', 'jar', 'box'
+        'can', 'cans', 'whole', 'each', 'bunch', 'bunches', 'head', 'stalk', 'stalks',
+        'pkg', 'package', 'container', 'jar', 'box', 'boxes',
+        'bag', 'bags', 'egg', 'eggs', 'stick', 'sticks', 'strip', 'strips',
+        'dozen', 'envelope', 'envelopes', 'bottle', 'bottles',
+        # Small amounts
+        'pinch', 'dash',
+        # Measurement
+        'inch', 'inches'
     ]
     UNIT_DISPLAY = {
         # Volume
@@ -59,11 +65,17 @@ class RecipeManager:
         'ml': 'ml',
         'L': 'L',
         'floz': 'fl oz',
+        'pint': 'pint',
+        'pints': 'pints',
+        'quart': 'quart',
+        'quarts': 'quarts',
         # Weight
         'oz': 'oz',
         'lb': 'lb',
         'g': 'g',
         'kg': 'kg',
+        'pound': 'lb',
+        'pounds': 'lb',
         # Counting/Pieces
         'slice': 'slice',
         'slices': 'slices',
@@ -76,6 +88,7 @@ class RecipeManager:
         'whole': 'whole',
         'each': 'each',
         'bunch': 'bunch',
+        'bunches': 'bunches',
         'head': 'head',
         'stalk': 'stalk',
         'stalks': 'stalks',
@@ -83,7 +96,49 @@ class RecipeManager:
         'package': 'package',
         'container': 'container',
         'jar': 'jar',
-        'box': 'box'
+        'box': 'box',
+        'boxes': 'boxes',
+        'bag': 'bag',
+        'bags': 'bags',
+        'egg': 'egg',
+        'eggs': 'eggs',
+        'stick': 'stick',
+        'sticks': 'sticks',
+        'strip': 'strip',
+        'strips': 'strips',
+        'dozen': 'dozen',
+        'envelope': 'envelope',
+        'envelopes': 'envelopes',
+        'bottle': 'bottle',
+        'bottles': 'bottles',
+        # Small amounts
+        'pinch': 'pinch',
+        'dash': 'dash',
+        # Measurement
+        'inch': 'inch',
+        'inches': 'inches'
+    }
+    
+    # Unit normalization map (variations -> standard)
+    UNIT_NORMALIZATION = {
+        'lbs': 'lb',
+        'pounds': 'lb',
+        'pound': 'lb',
+        'pints': 'pint',
+        'quarts': 'quart',
+        'pkgs': 'pkg',
+        'pkt': 'pkg',
+        'liters': 'L',
+        'bags': 'bag',
+        'bunches': 'bunch',
+        'boxes': 'box',
+        'eggs': 'egg',
+        'sticks': 'stick',
+        'strips': 'strip',
+        'envelopes': 'envelope',
+        'bottles': 'bottle',
+        'inches': 'inch',
+        'pcs': 'pieces'
     }
     
     def __init__(self, csv_file='recipes.csv'):
@@ -150,6 +205,22 @@ class RecipeManager:
             number = self._parse_fraction(number_part)
         except:
             raise ValueError(f"Invalid number format: '{number_part}'")
+        
+        # Normalize unit (handle variations)
+        if unit_part:
+            unit_lower = unit_part.lower()
+            # Check if it needs normalization
+            if unit_lower in self.UNIT_NORMALIZATION:
+                unit_part = self.UNIT_NORMALIZATION[unit_lower]
+            # Preserve case for standard units (C, T, t)
+            elif unit_part == 'C' or (unit_lower == 'c' and unit_part.isupper()):
+                unit_part = 'C'
+            elif unit_part == 'T' or (unit_lower == 't' and len(unit_part) == 1 and unit_part.isupper()):
+                unit_part = 'T'
+            elif unit_lower == 't':
+                unit_part = 't'
+            else:
+                unit_part = unit_lower
         
         # Validate unit
         if unit_part and unit_part not in self.VALID_UNITS:
