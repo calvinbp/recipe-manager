@@ -91,7 +91,9 @@ class RecipeManager:
         self.categories = [
             'meal', 'side', 'dessert', 'breakfast', 'snack', 'drink',
             'sauce', 'dressing', 'baked good', 'appetizer', 'condiment', 
-            'base/component', 'other'
+            'base/component', 'other',
+            # Additional categories from extracted recipes
+            'beverage', 'bread', 'main dish', 'side dish'
         ]
         self._ensure_csv_exists()
     
@@ -451,11 +453,20 @@ class RecipeManager:
             if not line_stripped and current_section != 'instructions':
                 continue
             
+            # Skip markdown headers (## Recipe Name)
+            if line_stripped.startswith('## '):
+                # Extract title from markdown header if Title: not found yet
+                if not recipe_data['title']:
+                    recipe_data['title'] = line_stripped[3:].strip()
+                continue
+            
             # Check for field headers
             if line_stripped.lower().startswith('title:'):
                 recipe_data['title'] = line_stripped[6:].strip()
             elif line_stripped.lower().startswith('category:'):
-                recipe_data['category'] = line_stripped[9:].strip().lower()
+                category = line_stripped[9:].strip().lower()
+                # Keep category as-is (all categories including new ones are in the list)
+                recipe_data['category'] = category
             elif line_stripped.lower().startswith('servings:'):
                 recipe_data['servings'] = line_stripped[9:].strip()
             elif line_stripped.lower().startswith('cook time:'):
@@ -499,7 +510,7 @@ class RecipeManager:
         return recipe_data
     
     def import_from_txt(self, txt_file: str):
-        """Import multiple recipes from a text file"""
+        """Import multiple recipes from a text file (supports .txt and .md formats)"""
         txt_path = Path(txt_file)
         
         if not txt_path.exists():
@@ -513,8 +524,25 @@ class RecipeManager:
         with open(txt_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # Split by separator (*****)
-        recipe_blocks = content.split('*****')
+        # Determine separator based on file extension
+        if txt_path.suffix.lower() == '.md':
+            # Markdown format uses --- as separator
+            # Also skip markdown headers (## Recipe Name) and metadata at top
+            lines = content.split('\n')
+            # Skip header lines until we find the first recipe
+            recipe_start = 0
+            for i, line in enumerate(lines):
+                if line.strip().startswith('## ') or line.strip().startswith('Title:'):
+                    recipe_start = i
+                    break
+            
+            # Split by --- separator
+            recipe_blocks = content.split('---')
+            # Filter out empty blocks and header metadata
+            recipe_blocks = [block.strip() for block in recipe_blocks if block.strip() and 'Title:' in block]
+        else:
+            # Text format uses ***** as separator
+            recipe_blocks = content.split('*****')
         
         imported_count = 0
         failed_count = 0
