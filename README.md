@@ -6,7 +6,9 @@ A Python command-line tool to collect, organize, and manage your recipes. Automa
 
 - 🌐 **Auto-scrape recipes** from 100+ popular recipe websites (AllRecipes, NYT Cooking, Food Network, etc.)
 - ✍️ **Manually add recipes** from cookbooks, family recipes, or handwritten notes
-- 📊 **Categorize recipes** (meal, side, dessert, breakfast, snack, drink, or custom categories)
+- 📄 **Bulk import from text files** - Import multiple recipes at once from a formatted .txt file
+- ✏️ **Update existing recipes** - Edit any field of previously added recipes
+- 📊 **Categorize recipes** (meal, side, dessert, breakfast, snack, drink, sauce, dressing, baked good, appetizer, condiment, base/component, other, or custom categories)
 - 🎲 **Random meal planning** - Generate weekly meal plans with X number of meals
 - 🛒 **Smart shopping lists** - Automatically consolidate ingredients (e.g., "1 C flour" + "2 C flour" = "3 C flour")
 - 🔍 **Search functionality** - Find recipes by title or ingredient
@@ -16,19 +18,34 @@ A Python command-line tool to collect, organize, and manage your recipes. Automa
 
 ## 📋 Requirements
 
-- Python 3.7 or higher
+- Python 3.7 or higher (Python 3.8+ recommended)
 - pip (Python package manager)
 
 ## 🚀 Installation
 
-### 1. Clone the repository
+### Recommended: Using a Virtual Environment
 
+**We strongly recommend using a virtual environment** to keep dependencies isolated. See [SETUP.md](SETUP.md) for detailed setup instructions.
+
+**Quick start:**
 ```bash
-git clone https://github.com/calvinbp/recipe-manager.git
-cd recipe-manager
+# Create virtual environment
+python3 -m venv venv
+
+# Activate it (macOS/Linux)
+source venv/bin/activate
+
+# Activate it (Windows)
+venv\Scripts\activate
+
+# Install dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-### 2. Install dependencies
+### Alternative: Global Installation
+
+If you prefer to install globally (not recommended):
 
 ```bash
 pip install -r requirements.txt
@@ -37,12 +54,12 @@ pip install -r requirements.txt
 Or install individually:
 
 ```bash
-pip install recipe-scrapers pandas requests beautifulsoup4
+pip install recipe-scrapers pandas requests beautifulsoup4 pillow pytesseract
 ```
 
-### 3. You're ready!
+**Note:** The CSV database will be created automatically when you add your first recipe.
 
-The CSV database will be created automatically when you add your first recipe.
+📖 **For detailed setup instructions, see [SETUP.md](SETUP.md)**
 
 ## 📖 Usage
 
@@ -83,13 +100,21 @@ This will interactively prompt you for:
 
 When entering ingredients, use this format: `[quantity] [unit] [ingredient name]`
 
-**Valid units:** `t` (tsp), `T` (Tbsp), `C` (cup), `oz`, `floz` (fl oz), `lb`, `g`, `kg`, `ml`, `L`
+**Valid units:**
+- **Volume:** `t` (tsp), `T` (Tbsp), `C` (cup), `ml`, `L`, `floz` (fl oz)
+- **Weight:** `oz`, `lb`, `g`, `kg`
+- **Counting:** `slice`, `slices`, `piece`, `pieces`, `clove`, `cloves`, `whole`, `each`, `can`, `cans`, `bunch`, `head`, `stalk`, `stalks`, `pkg`, `package`, `container`, `jar`, `box`
+- **No unit:** For items like eggs, just use the count: `3 eggs`
 
 **Examples:**
 - `1/2 C cottage cheese` → Parsed as: 0.5 cup Cottage Cheese
 - `2 T butter` → Parsed as: 2 Tbsp Butter
 - `3 eggs` → Parsed as: 3 Eggs (no unit)
 - `1 1/2 t vanilla` → Parsed as: 1.5 tsp Vanilla
+- `2 slices bread` → Parsed as: 2 slices Bread
+- `1 can tomatoes` → Parsed as: 1 can Tomatoes
+- `3 cloves garlic` → Parsed as: 3 cloves Garlic
+- `1/4 bunch cilantro` → Parsed as: 0.25 bunch Cilantro
 
 The system will:
 - Parse fractions and decimals
@@ -104,8 +129,8 @@ MANUALLY ADD RECIPE
 
 Recipe Title: Cottage Cheese Flatbread
 
-Available categories: meal, side, dessert, breakfast, snack, drink
-Category (or press Enter for 'meal'): snack
+Available categories: meal, side, dessert, breakfast, snack, drink, sauce, dressing, baked good, appetizer, condiment, base/component, other
+Category (or press Enter for 'meal'): baked good
 
 Source/URL (optional, press Enter to skip): tastyhappy.com
 
@@ -131,6 +156,10 @@ Ingredient: 1/2 t salt
   -> Added: 0.5 tsp Salt
 
 Ingredient 4:
+Ingredient: 2 slices bread
+  -> Added: 2 slices Bread
+
+Ingredient 5:
 Ingredient: [press Enter to finish]
 ```
   3. 2 tablespoons flour
@@ -154,6 +183,119 @@ Image URL (optional):
 ✅ Added 'Grandma's Apple Pie' to your recipe collection!
 ```
 
+### Import Recipes from Text File
+
+Bulk import multiple recipes from a `.txt` file - great for typing up recipes from cookbooks or family collections!
+
+```bash
+python recipe_manager.py import-txt my_recipes.txt
+```
+
+#### Text File Format
+
+See `recipe_template.txt` for examples. Format for each recipe:
+
+```
+Title: Recipe Name
+Category: category name
+Servings: amount
+Cook Time: time
+Source: url or reference (optional)
+
+Ingredients:
+1/2 C ingredient one
+2 T ingredient two
+3 ingredient three
+
+Instructions:
+Step one instructions.
+Step two instructions.
+Step three instructions.
+
+Notes: Optional notes here
+
+*****
+```
+
+**Rules:**
+- **Required fields:** Title, Ingredients, Instructions
+- **Optional fields:** Category (defaults to 'meal'), Servings, Cook Time, Source, Notes
+- **Separator:** Five asterisks (`*****`) between recipes
+- **Ingredients:** Use standardized format (see ingredient format section above)
+- **Blank lines:** Used to separate sections
+
+**Example import:**
+
+```bash
+python recipe_manager.py import-txt recipe_template.txt
+```
+
+Output:
+```
+Importing recipes from: recipe_template.txt
+================================================================================
+
+Processing recipe 1...
+  SUCCESS: Added 'Cottage Cheese Flatbread'
+    Category: baked good | Ingredients: 4
+
+Processing recipe 2...
+  SUCCESS: Added 'Basic Pie Crust'
+    Category: base/component | Ingredients: 5
+
+================================================================================
+Import complete: 2 successful, 0 failed
+================================================================================
+```
+
+### Update Existing Recipe
+
+Edit any field of an existing recipe:
+
+```bash
+# Update specific recipe by title
+python recipe_manager.py update "Cottage Cheese Flatbread"
+
+# Or browse and select from all recipes
+python recipe_manager.py update
+```
+
+**Interactive process:**
+1. Select recipe (if multiple matches or no title provided)
+2. See current value for each field
+3. Press Enter to keep current value, or type new value
+4. Choose whether to update ingredients or instructions
+5. Recipe is saved with changes
+
+**Example session:**
+```
+UPDATING: Cottage Cheese Flatbread
+================================================================================
+Press Enter to keep current value, or type new value
+
+Title [Cottage Cheese Flatbread]: 
+Category [snack]: baked good
+Servings [4 flatbreads]: 
+Cook Time [15 mins]: 
+Source/URL [tastyhappy.com]: 
+
+Current Ingredients:
+  1. 1 cup Cottage Cheese
+  2. 1 Egg
+  3. 0.5 tsp Salt
+
+Update ingredients? (y/n): n
+
+Current Instructions: Mix all ingredients...
+Update instructions? (y/n): n
+
+Notes []: Great for meal prep!
+
+================================================================================
+SUCCESS: Updated 'Cottage Cheese Flatbread'!
+================================================================================
+```
+
 ### List All Recipes
 
 ```bash
@@ -163,8 +305,20 @@ python recipe_manager.py list
 # List recipes by category
 python recipe_manager.py list meal
 python recipe_manager.py list dessert
-python recipe_manager.py list breakfast
+python recipe_manager.py list "baked good"
+python recipe_manager.py list "base/component"
+python recipe_manager.py list sauce
 ```
+
+**Available categories:** meal, side, dessert, breakfast, snack, drink, sauce, dressing, baked good, appetizer, condiment, base/component, other
+
+**Category examples:**
+- **base/component** - Pie crust, pizza dough, pasta dough, pie filling, stock/broth, bread dough
+- **baked good** - Muffins, cookies, cakes, flatbreads
+- **sauce** - Pasta sauce, gravy, marinara
+- **condiment** - Spreads, dips, relishes
+
+**Note:** You can also type any custom category when adding a recipe, and it will be added to your personal category list.
 
 **Example output:**
 ```
@@ -252,7 +406,9 @@ python recipe_manager.py search "apple pie"
 
 ## 🌐 Supported Recipe Websites
 
-The tool uses the `recipe-scrapers` library which supports 100+ websites including:
+The tool uses multiple methods to extract recipes:
+
+1. **Primary: recipe-scrapers library** - Supports 100+ websites including:
 
 - AllRecipes
 - Food Network
@@ -268,7 +424,9 @@ The tool uses the `recipe-scrapers` library which supports 100+ websites includi
 - Cookie and Kate
 - And many more!
 
-[Full list of supported sites](https://github.com/hhursev/recipe-scrapers#scrapers-available-for)
+2. **Fallback: JSON-LD structured data extraction** - If recipe-scrapers fails, the tool automatically tries to extract recipe data from JSON-LD structured data (schema.org Recipe format). This works for many sites that use structured data for SEO, even if they're not directly supported by recipe-scrapers.
+
+[Full list of recipe-scrapers supported sites](https://github.com/hhursev/recipe-scrapers#scrapers-available-for)
 
 ## 📂 File Structure
 

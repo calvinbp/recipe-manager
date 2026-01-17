@@ -1,5 +1,5 @@
 # Recipe data (optional - uncomment if you want to keep recipes private)
-# recipes.csv
+recipes.csv
 
 # Python
 __pycache__/
